@@ -58,14 +58,14 @@ func init() {
 		"DNS server address (ip:port)")
 	flag.IntVar(&concurrency, "concurrency", 5000,
 		"Internal buffer")
-	flag.IntVar(&packetsPerSecond, "pps", 120,
+	flag.IntVar(&packetsPerSecond, "pps", 1024,
 		"Send up to PPS DNS queries per second")
 	flag.StringVar(&retryTime, "retry", "1s",
 		"Resend unanswered query after RETRY")
 	flag.BoolVar(&verbose, "v", false,
 		"Verbose logging")
-	flag.BoolVar(&ipv6, "6", false,
-		"Ipv6 - ask for AAAA, not A")
+	// flag.BoolVar(&ipv6, "6", false,
+	// 	"Ipv6 - ask for AAAA, not A")
 }
 
 func main() {
