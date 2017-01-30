@@ -22,9 +22,7 @@
 
 package main
 
-import (
-	"net"
-)
+import "net"
 
 // Integer to decimal.
 func itoa(i int) string {
@@ -924,11 +922,19 @@ func convertRR_A(records []dnsRR) []net.IP {
 }
 
 func convertRR_AAAA(records []dnsRR) []net.IP {
-        addrs := make([]net.IP, len(records))
-        for i, rr := range records {
-                a := make(net.IP, net.IPv6len)
-                copy(a, rr.(*dnsRR_AAAA).AAAA[:])
-                addrs[i] = a
-        }
-        return addrs
+	addrs := make([]net.IP, len(records))
+	for i, rr := range records {
+		a := make(net.IP, net.IPv6len)
+		copy(a, rr.(*dnsRR_AAAA).AAAA[:])
+		addrs[i] = a
+	}
+	return addrs
+}
+
+func convertRR_NS(records []dnsRR) []string {
+	addrs := make([]string, len(records))
+	for i, rr := range records {
+		addrs[i] = rr.(*dnsRR_NS).Ns[:]
+	}
+	return addrs
 }

@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"sort"
 	"strings"
 	"time"
 )
@@ -32,7 +31,12 @@ func do_read_domains(domains chan<- string, domainSlotAvailable <-chan bool) {
 			continue
 		}
 
-		domain := input + "."
+		var domain string
+		if !strings.HasSuffix(input, ".") {
+			domain = input + "."
+		} else {
+			domain = input
+		}
 
 		domains <- domain
 	}
@@ -142,7 +146,7 @@ type domainRecord struct {
 type domainAnswer struct {
 	id     uint16
 	domain string
-	ips    []net.IP
+	ips    []string
 }
 
 func do_map_guard(domains <-chan string,
@@ -210,15 +214,21 @@ func do_map_guard(domains <-chan string,
 						dr.id, dr.domain)
 				}
 
-				s := make([]string, 0, 16)
-				for _, ip := range da.ips {
-					s = append(s, ip.String())
-				}
-				sort.Sort(sort.StringSlice(s))
+				// s := make([]string, 0, 16)
+				// for _, ip := range da.ips {
+				// 	s = append(s, ip)
+				// }
+				// sort.Sort(sort.StringSlice(s))
 
-				// without trailing dot
+				// // without trailing dot
 				domain := dr.domain[:len(dr.domain)-1]
-				fmt.Printf("%s, %s\n", domain, strings.Join(s, " "))
+				// fmt.Printf("%s, %s\n", domain, strings.Join(s, " "))
+
+				if len(da.ips) > 0 {
+					fmt.Printf("%s, EXIST\n", domain)
+				} else {
+					fmt.Printf("%s, NXDOMAIN\n", domain)
+				}
 
 				sumTries += dr.resend
 				domainCount += 1
@@ -249,13 +259,13 @@ func do_send(c net.Conn, tryResolving <-chan *domainRecord) {
 	for {
 		dr := <-tryResolving
 
-		var t uint16
-		if !ipv6 {
-			t = dnsTypeA
-		} else {
-			t = dnsTypeAAAA
-		}
-		msg := packDns(dr.domain, dr.id, t)
+		// var t uint16
+		// if !ipv6 {
+		// 	t = dnsTypeA
+		// } else {
+		// 	t = dnsTypeAAAA
+		// }
+		msg := packDns(dr.domain, dr.id, dnsTypeNS)
 
 		_, err := c.Write(msg)
 		if err != nil {
@@ -275,13 +285,21 @@ func do_receive(c net.Conn, resolved chan<- *domainAnswer) {
 			os.Exit(1)
 		}
 
-		var t uint16
-		if !ipv6 {
-			t = dnsTypeA
-		} else {
-			t = dnsTypeAAAA
-		}
-		domain, id, ips := unpackDns(buf[:n], t)
+		// var t uint16
+		// if !ipv6 {
+		// 	t = dnsTypeA
+		// } else {
+		// 	t = dnsTypeAAAA
+		// }
+		domain, id, ips := unpackDns(buf[:n], dnsTypeNS)
 		resolved <- &domainAnswer{id, domain, ips}
 	}
+}
+
+func toIPS(ss []string) []net.IP {
+	ips := make([]net.IP, len(ss))
+	for i := range ss {
+		copy(ips[i], ips[i][:])
+	}
+	return ips
 }

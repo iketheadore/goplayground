@@ -66,6 +66,7 @@ func reverseaddr(addr string) (arpa string, err error) {
 // On return, if err == nil, addrs != nil.
 func answer(name, server string, dns *dnsMsg, qtype uint16) (cname string, addrs []dnsRR, err error) {
 	addrs = make([]dnsRR, 0, len(dns.answer))
+	// fmt.Printf("%+v\n", *dns)
 
 	if dns.rcode == dnsRcodeNameError && dns.recursion_available {
 		return "", nil, &DNSError{Err: noSuchHost, Name: name}
@@ -86,6 +87,7 @@ func answer(name, server string, dns *dnsMsg, qtype uint16) (cname string, addrs
 Cname:
 	for cnameloop := 0; cnameloop < 10; cnameloop++ {
 		addrs = addrs[0:0]
+		// records := append(dns.answer, dns.ns...)
 		for _, rr := range dns.answer {
 			if _, justHeader := rr.(*dnsRR_Header); justHeader {
 				// Corrupt record: we only have a
@@ -103,9 +105,26 @@ Cname:
 					// redirect to cname
 					name = rr.(*dnsRR_CNAME).Cname
 					continue Cname
+					// case dnsTypeNS:
+					// 	name = rr.(*dnsRR_NS).Ns
+					// 	addrs = append(addrs, rr)
+					// default:
+					// 	matchFun := func(tp uint16) bool {
+					// 		for _, qtp := range qtypes {
+					// 			if qtp == tp {
+					// 				return true
+					// 			}
+					// 		}
+					// 		return false
+					// 	}
+
+					// 	if matchFun(h.Rrtype) {
+					// 		addrs = append(addrs, rr)
+					// 	}
 				}
 			}
 		}
+
 		if len(addrs) == 0 {
 			return "", nil, &DNSError{Err: noSuchHost, Name: name, Server: server}
 		}
