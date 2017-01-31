@@ -61,9 +61,9 @@ func init() {
 		"Internal buffer")
 	flag.IntVar(&packetsPerSecond, "pps", 1024,
 		"Send up to PPS DNS queries per second")
-	flag.StringVar(&retryTime, "retry", "1s",
+	flag.StringVar(&retryTime, "retry", "10s",
 		"Resend unanswered query after RETRY")
-	flag.IntVar(&retryNum, "retry-num", 2,
+	flag.IntVar(&retryNum, "retry-num", 100,
 		"retry times")
 	flag.BoolVar(&verbose, "v", false,
 		"Verbose logging")
@@ -147,9 +147,10 @@ type domainRecord struct {
 }
 
 type domainAnswer struct {
-	id     uint16
-	domain string
-	ips    []string
+	id                uint16
+	domain            string
+	retryLimitReached bool
+	ips               []string
 }
 
 func do_map_guard(domains <-chan string,
@@ -193,7 +194,7 @@ func do_map_guard(domains <-chan string,
 			if m[dr.id] == dr {
 				dr.resend += 1
 				if dr.resend > retryNum {
-					resolved <- &domainAnswer{id: dr.id, domain: dr.domain}
+					resolved <- &domainAnswer{id: dr.id, domain: dr.domain, retryLimitReached: true}
 					continue
 				}
 				dr.timeout = time.Now()
@@ -221,20 +222,16 @@ func do_map_guard(domains <-chan string,
 						dr.id, dr.domain)
 				}
 
-				// s := make([]string, 0, 16)
-				// for _, ip := range da.ips {
-				// 	s = append(s, ip)
-				// }
-				// sort.Sort(sort.StringSlice(s))
-
-				// // without trailing dot
 				domain := dr.domain[:len(dr.domain)-1]
-				// fmt.Printf("%s, %s\n", domain, strings.Join(s, " "))
 
 				if len(da.ips) > 0 {
 					fmt.Printf("%s, EXIST\n", domain)
 				} else {
-					fmt.Printf("%s, NXDOMAIN\n", domain)
+					if da.retryLimitReached {
+						fmt.Printf("%s, RETRYLIMITREACHED\n", domain)
+					} else {
+						fmt.Printf("%s, NXDOMAIN\n", domain)
+					}
 				}
 
 				sumTries += dr.resend
@@ -299,7 +296,7 @@ func do_receive(c net.Conn, resolved chan<- *domainAnswer) {
 		// 	t = dnsTypeAAAA
 		// }
 		domain, id, ips := unpackDns(buf[:n], dnsTypeNS)
-		resolved <- &domainAnswer{id, domain, ips}
+		resolved <- &domainAnswer{id: id, domain: domain, ips: ips}
 	}
 }
 
