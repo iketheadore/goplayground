@@ -50,6 +50,7 @@ var concurrency int
 var dnsServer string
 var packetsPerSecond int
 var retryTime string
+var retryNum int
 var verbose bool
 var ipv6 bool
 
@@ -62,6 +63,8 @@ func init() {
 		"Send up to PPS DNS queries per second")
 	flag.StringVar(&retryTime, "retry", "1s",
 		"Resend unanswered query after RETRY")
+	flag.IntVar(&retryNum, "retry-num", 2,
+		"retry times")
 	flag.BoolVar(&verbose, "v", false,
 		"Verbose logging")
 	// flag.BoolVar(&ipv6, "6", false,
@@ -154,7 +157,7 @@ func do_map_guard(domains <-chan string,
 	timeoutRegister chan<- *domainRecord,
 	timeoutExpired <-chan *domainRecord,
 	tryResolving chan<- *domainRecord,
-	resolved <-chan *domainAnswer) (int, float64) {
+	resolved chan *domainAnswer) (int, float64) {
 
 	m := make(map[uint16]*domainRecord)
 
@@ -189,6 +192,10 @@ func do_map_guard(domains <-chan string,
 		case dr := <-timeoutExpired:
 			if m[dr.id] == dr {
 				dr.resend += 1
+				if dr.resend > retryNum {
+					resolved <- &domainAnswer{id: dr.id, domain: dr.domain}
+					continue
+				}
 				dr.timeout = time.Now()
 				if verbose {
 					fmt.Fprintf(os.Stderr, "0x%04x resend (try:%d) %s\n", dr.id,
